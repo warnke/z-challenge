@@ -15,6 +15,7 @@ See Repo Issues
   false positives and possibly to loss of information. Fuzzy matching outside of the scope of the project, needs to be discussed with client first
 * A given (District name, date) key tuple is not necessarily unique, i.e. two rows in same file can have identical key.
   * Example: 
+
              phem-file: row a = ("district a", "date 123", ... some data) exists together with
                         row b = ("district a", "date 123", ... some other data)
              hmis-file: row c = ("district a", "date 123", ... some hmis data ...)
