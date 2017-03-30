@@ -31,14 +31,14 @@ class CustomJoin():
         self.phem_row_len = 0
         
     def parse_alternate_spellings(self):
-        # - district itself always in the list of matches? No! -> add district to set as well.
-        # - check if two (Region,Zone) tuples have the same District, i.e. need to check if District is unique or not
-        #   --> This is indeed the case! Aregoba is an example for a non-unique key
-        #       Workaround: include region and zone to the key, make it a tuple: (region, zone, district)
-        
         '''
         Parses alternate spellings file and populates the class dictionary
         '''
+        # - district itself is not always in the list of matches? -> add district to set as well.
+        # - sometimes, two (Region,Zone) tuples have the same district, i.e. we need to check if District is unique or not
+        #   Example: Aregoba is an example for a non-unique district name.
+        #   Workaround: include region and zone to the key, make it a tuple: (region, zone, district)
+        
         
         file = open(self.alternate_spellings_file, 'r')
         
@@ -71,18 +71,12 @@ class CustomJoin():
 
     def get_default_spelling(self, some_district_spelling):
         '''
-        input: string, some district name in some spelling
-        output: returns the default spelling of that district
-        NOTE: In this first version, I am assuming that
-              the default district names are unique which is not entirely true,
-              i.e. only the 3-tuples (Region, Zone, District) are truly unique
-              across the dataset. What I am doing for now: I simply return the first
-              match and ignore the identity resolution problem for now. 
+        input: string, a district name in some spelling
+        output: returns default spelling of that district
         NOTE: if no default spelling is found (perfect match), then original
               spelling is returned
         NOTE: could do fuzzy matching or Levenshtein distance to match, but
-              that would be a bit arbitrary and could lead to false positives
-              in short words.
+              that could lead to false positives and potential data loss
         '''
         for key, value in self.alternate_spellings.items():
             if some_district_spelling.lower() in value:
@@ -98,7 +92,7 @@ class CustomJoin():
         '''
         input: hmis file
         output: void, populates 2d-list containing the rows of the hmis file
-                and populates hmis_positions dictionary linking key and array positions
+                and populates hmis_positions dictionary linking key and array positions.
                 also creates the hmis header row
                 
         NOTE: li[3] = region (not used for now)
@@ -124,7 +118,6 @@ class CustomJoin():
             li[-1] = li[-1].strip()
             
             # replace district name with default district name
-            #li[4] = self.get_default_spelling(li[4].lower())
             li[4] = self.get_default_spelling(li[4])
             
             self.hmis_array.append(li)
@@ -132,10 +125,7 @@ class CustomJoin():
             if (li[4], li[15], li[14]) in self.hmis_positions:
                 self.hmis_positions[(li[4], li[15], li[14])].append(rownum)
                 # log: 'WARNING: hmis, more than one row belongs to the same key'
-                # why is that? several different facilities can be in the same region/district
-                # and contribute to the same database in the same month
-                # ideally, we would aggregate over them, the percentage is small, ignoring this problem 
-                # in version 1.0
+                # See README.md
             else:
                 self.hmis_positions[(li[4], li[15], li[14])] = [rownum]
             rownum +=1
@@ -148,6 +138,7 @@ class CustomJoin():
         input: phem file
         output: void, populates 2d-list containing the rows of the phem file
                 and populates phem_positions dictionary linking key and array positions
+                creates phem header row as well
                 
         NOTE: li[0] = region
               li[2] = district
@@ -171,8 +162,6 @@ class CustomJoin():
             li = line.split(',')
             li[-1] = li[-1].strip()
         
-            # replace district name with default district name
-            # keep original if no default spelling is found
             li[2] = self.get_default_spelling(li[2])
 
             self.phem_array.append(li)
@@ -180,12 +169,6 @@ class CustomJoin():
             # store rownum in dict
             if (li[2], li[-1], li[-2]) in self.phem_positions:
                 self.phem_positions[(li[2], li[-1], li[-2])].append(rownum)
-                # log: 'WARNING: phem, more than one row belongs to the same key'
-                # why is that? several different districts can be in the same region/zone
-                # and contribute to the same database in the same month
-                # this does not happen very often. for now i append the rownum to a list
-                # which will create slightly redundant data after the full outer join,
-                # but prevent the loss of data
             else:
                 self.phem_positions[(li[2], li[-1], li[-2])] = [rownum]
             rownum += 1
@@ -196,20 +179,9 @@ class CustomJoin():
 
     def perform_full_outer_join(self):
         '''
-        void, generates joined table array
+        void, generate joined table array
         '''
-      
-        # Explain why phem_v and hmis_v are arrays: In several cases, a given district name occurs in different
-        # regions. Therefore, when we key by default district name, year, data, we can have more than one
-        # matching line. I have decided to iterate through the lines with identical keys for in both, the hmis
-        # and the phem file. This creates slightly redundant data in the outer join, but it also prevents from
-        # data loss.
-        
-        
-        # if more than one value in value-array, we have multiple
-        # rows that belong to the same key -> conflict. 
-        # Could pick one and lose data, or pick all and have some redundant data - which behavior desired?
-        # This only happens for a small portion of rows
+        # phem_v and hmis_v are arrays. see README.md for an explanation
         
         for hmis_k, hmis_v in self.hmis_positions.items():
             first_two_cols = [hmis_k[0], str(hmis_k[1]) + '-' + str(hmis_k[2])]
