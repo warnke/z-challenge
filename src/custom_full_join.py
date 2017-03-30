@@ -34,11 +34,10 @@ class CustomJoin():
         '''
         Parses alternate spellings file and populates the class dictionary
         '''
-        # - district itself is not always in the list of matches? -> add district to set as well.
-        # - sometimes, two (Region,Zone) tuples have the same district, i.e. we need to check if District is unique or not
-        #   Example: Aregoba is an example for a non-unique district name.
+        # - default district name itself is not always in the list of matches -> add defaultu district name to set
+        # - some default district names are not unique
+        #   Aregoba is an example for a non-unique district name.
         #   Workaround: include region and zone to the key, make it a tuple: (region, zone, district)
-        
         
         file = open(self.alternate_spellings_file, 'r')
         
@@ -73,14 +72,14 @@ class CustomJoin():
         '''
         input: string, a district name in some spelling
         output: returns default spelling of that district
-        NOTE: if no default spelling is found (perfect match), then original
+        NOTE: if no default spelling is found (no perfect match), then original
               spelling is returned
-        NOTE: could do fuzzy matching or Levenshtein distance to match, but
+        NOTE: could do fuzzy matching or Levenshtein distance, but
               that could lead to false positives and potential data loss
         '''
+
         for key, value in self.alternate_spellings.items():
             if some_district_spelling.lower() in value:
-            #if some_district_spelling in value: 
                 return key[2]
         
         # ideally: catch an exception and log event if no district is found,
@@ -138,7 +137,7 @@ class CustomJoin():
         input: phem file
         output: void, populates 2d-list containing the rows of the phem file
                 and populates phem_positions dictionary linking key and array positions
-                creates phem header row as well
+                creates phem header row
                 
         NOTE: li[0] = region
               li[2] = district
@@ -181,8 +180,9 @@ class CustomJoin():
         '''
         void, generate joined table array
         '''
-        # phem_v and hmis_v are arrays. see README.md for an explanation
-        
+        # phem_v and hmis_v are arrays. Why? A given key 2-tuple (district, date) might not be unique.
+        # In this case iterate through all lines that have identical key. See README.md for details
+       
         for hmis_k, hmis_v in self.hmis_positions.items():
             first_two_cols = [hmis_k[0], str(hmis_k[1]) + '-' + str(hmis_k[2])]
 
